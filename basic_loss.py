@@ -9,7 +9,7 @@ from torchvision.transforms import ToPILImage
 from PIL import Image
 import datetime
 import os
-i = 0
+
 _reduction_modes = ['none', 'mean', 'sum']
 
 
@@ -55,21 +55,7 @@ class L1Loss(nn.Module):
         """
         # print("pred shape------",pred.shape)
         # print("target shape------", target.shape)
-        global i
-        i = i + 1
-        if i % 300 ==0:
-            current_time = datetime.datetime.now()
-            formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
-            to_pil = ToPILImage()
-            p0 = target[0]
-            p1 = pred[0]
-            plc0 = to_pil(p0)
-            plc1 = to_pil(p1)
-            save_directory = "/data1/hsw/results/generates1"
-            save_path = os.path.join(save_directory, f'L1{formatted_time}HR.png')
-            save_path1 = os.path.join(save_directory, f'L1{formatted_time}SR.png')
-            plc0.save(save_path)
-            plc1.save(save_path1)
+        
         return self.loss_weight * l1_loss(pred, target, weight, reduction=self.reduction)
 
 @LOSS_REGISTRY.register()
@@ -94,23 +80,6 @@ class bceloss(nn.Module):
         return binary_tensors
 
     def forward(self, pred, SR, target, **kwargs):
-        # global i
-        # i = i + 1
-        # if i % 30 == 0:
-        current_time = datetime.datetime.now()
-        formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
-        to_pil = ToPILImage()
-        p0 = target[0]
-        p1 = SR[0]
-        plc0 = to_pil(p0)
-        plc1 = to_pil(p1)
-        save_directory = "/data1/hsw/results/generates2"
-        save_path = os.path.join(save_directory, f'{formatted_time}HR.png')
-        save_path1 = os.path.join(save_directory, f'{formatted_time}SR.png')
-        plc0.save(save_path)
-        plc1.save(save_path1)
-        
-        # b, c, h, w = target.shape
         target = target * 255
         for i in range(len(pred)):
             # print("-----------------------------------------------------------------------",i)
@@ -135,30 +104,9 @@ class CustomCrossEntropyLoss(nn.Module):
         self.loss_weight = loss_weight
 
     def forward(self, pred1, pred2, target, **kwargs):
-        global i
-        i = i + 1
         # pred1: (C, B, 256, H, W)
         # target: (B, C, H, W)
-        # x = target
-        # print("target0 ------", target)
-        # 重新调整 pred 的形状为 (B * C, H * W)
         B, C, H, W = target.size()
-        # pred1 = pred1.permute(1, 0, 3, 4, 2).reshape(B * C * H * W, NUM)
-        # print("pred ------",pred1)
-        # 重新调整 target 的形状为 (B * C, H * W)
-        if i % 300 == 0:
-            current_time = datetime.datetime.now()
-            formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
-            to_pil = ToPILImage()
-            p0 = target[0]
-            p1 = pred2[0]
-            plc0 = to_pil(p0)
-            plc1 = to_pil(p1)
-            save_directory = "/data1/hsw/results/generates1"
-            save_path = os.path.join(save_directory, f'{formatted_time}HR.png')
-            save_path1 = os.path.join(save_directory, f'{formatted_time}SR.png')
-            plc0.save(save_path)
-            plc1.save(save_path1)
         target = target * 255
         target = target.permute(0, 1, 2, 3).reshape(B * C * H * W).long()
         # print("target ------",target)
