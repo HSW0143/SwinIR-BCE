@@ -933,7 +933,7 @@ class SwinIR(nn.Module):
         pred = []
         # global i
         # i = i + 1
-        if self.upsampler == 'pixelshuffle':                  #这里得到x_b是24通道，经过一个reshape_and_split函数后返回一个含有8个3通道的列表
+        if self.upsampler == 'pixelshuffle':                  #这里得到x_b是24通道，经过一个reshape_and_split函数（899行）后返回一个含有8个3通道的列表
             # for classical SR
             x = self.conv_first(x)
             x = self.conv_after_body(self.forward_features(x)) + x
@@ -961,7 +961,7 @@ class SwinIR(nn.Module):
             x = x + self.conv_last(res)
         # print("------x0------",x)
 
-        x = self.binary_to_decimal(pred)                                             #进行二进制转十进制
+        x = self.binary_to_decimal(pred)                                             #进行二进制转十进制（转换函数在886行）
         # print("x0----------------------------------------",x)
         x = x / self.img_range + self.mean
 
