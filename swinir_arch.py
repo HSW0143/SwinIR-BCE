@@ -692,21 +692,6 @@ class UpsampleOneStep(nn.Sequential):
         flops = h * w * self.num_feat * 3 * 9
         return flops
 
-# class MyModel(nn.Module):
-#     def __init__(self, input_dim, hidden_dim, output_dim):
-#         super(MyModel, self).__init__()
-#         self.conv1 = nn.Conv2d(input_dim, hidden_dim, kernel_size=3, padding=1)  # 输入维度为 input_dim，输出维度为 hidden_dim
-#         self.conv2 = nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, padding=1)  # 输入维度为 hidden_dim，输出维度为 hidden_dim
-#         self.conv3 = nn.Conv2d(hidden_dim, output_dim, kernel_size=3, padding=1)  # 输入维度为 hidden_dim，输出维度为 output_dim
-#         self.relu = nn.ReLU()
-#
-#     def forward(self, x):
-#         x = self.conv1(x)
-#         x = self.relu(x)
-#         x = self.conv2(x)
-#         x = self.relu(x)
-#         x = self.conv3(x)
-#         return x
 
 @ARCH_REGISTRY.register()
 class SwinIR(nn.Module):
@@ -839,15 +824,6 @@ class SwinIR(nn.Module):
                 resi_connection=resi_connection)
             self.layers.append(layer)
         self.norm = norm_layer(self.num_features)
-        # self.b_conv = nn.Conv2d(num_out_ch, num_out_ch*8, 3, 1, 1)
-        # self.mamba = Mamba(
-        #     # This module uses roughly 3 * expand * d_model^2 parameters
-        #     d_model=3,  # Model dimension d_model
-        #     d_state=16,  # SSM state expansion factor
-        #     d_conv=4,  # Local convolution width
-        #     expand=2,  # Block expansion factor
-        # ).to("cuda")
-        # build the last conv layer in deep feature extraction
         if resi_connection == '1conv':
             self.conv_after_body = nn.Conv2d(embed_dim, embed_dim, 3, 1, 1)
         elif resi_connection == '3conv':
@@ -863,7 +839,7 @@ class SwinIR(nn.Module):
             self.conv_before_upsample = nn.Sequential(
                 nn.Conv2d(embed_dim, num_feat, 3, 1, 1), nn.LeakyReLU(inplace=True))
             self.upsample = Upsample(upscale, num_feat)
-            self.conv_last = nn.Conv2d(num_feat, num_out_ch*8, 3, 1, 1)
+            self.conv_last = nn.Conv2d(num_feat, num_out_ch*8, 3, 1, 1)                   #原来是num_out_ch，这里改为乘以8
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR (to save parameters)
             self.upsample = UpsampleOneStep(upscale, embed_dim, num_out_ch,
@@ -921,7 +897,7 @@ class SwinIR(nn.Module):
         return decimal_tensor
 
     def reshape_and_split(self, x_b):
-        # 假设 x_b 的形状为 b * (3*8) * h * w
+        x_b 的形状为 b * (3*8) * h * w
         b, c, h, w = x_b.shape
         assert c == 3 * 8, "输入张量的通道数不等于 3*8"
 
@@ -957,7 +933,7 @@ class SwinIR(nn.Module):
         pred = []
         # global i
         # i = i + 1
-        if self.upsampler == 'pixelshuffle':
+        if self.upsampler == 'pixelshuffle':                  #这里得到x_b是24通道，经过一个reshape_and_split函数后返回一个含有8个3通道的列表
             # for classical SR
             x = self.conv_first(x)
             x = self.conv_after_body(self.forward_features(x)) + x
@@ -965,18 +941,6 @@ class SwinIR(nn.Module):
             x_b = self.conv_last(self.upsample(x))
             # x_b = self.conv_blast(x)
             pred = self.reshape_and_split(x_b)
-            #print("------x0 shape------",x.shape)
-            # ---------------------------------------------------------
-            # b, c, h, w =x.shape
-            # x = x.permute(0, 2, 3, 1).reshape(b, h*w, c)
-            # print("------x1 shape------", x.shape)
-            # x_b = self.mamba(x)
-            # print("------x_b shape------", x_b.shape)
-            # pred.append(x_b.permute(0, 2, 1).reshape(b, c, h, w))
-            # for i in range(7):
-            #     x_b = x + x_b
-            #     pred.append(x_b.permute(0, 2, 1).reshape(b, c, h, w))
-            # ---------------------------------------------------------
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR
             x = self.conv_first(x)
@@ -997,35 +961,10 @@ class SwinIR(nn.Module):
             x = x + self.conv_last(res)
         # print("------x0------",x)
 
-        x = self.binary_to_decimal(pred)
+        x = self.binary_to_decimal(pred)                                             #进行二进制转十进制
         # print("x0----------------------------------------",x)
         x = x / self.img_range + self.mean
-        # print("x1----------------------------------------",x)
-        # print("------x------", x)
-        # x1 = self.L1(x)
-        # x2 = self.L2(x)
-        # x3 = self.L3(x)
-        # c = torch.cat((x1.unsqueeze(0), x2.unsqueeze(0), x3.unsqueeze(0)), dim=0)
-        # C, B, NUM, H, W =c.size()
-        # c = c.permute(1, 0, 3, 4, 2).reshape(B * C * H * W, NUM)
-        # x4 = torch.argmax(c, dim=1)
-        # # print("x shape------",x4.shape)
-        # x4 = x4.view(B, C, H, W)
-        # x4 = x4 / 255
 
-        # if i % 10 ==0:
-        #     current_time = datetime.datetime.now()
-        #     one_minute_later = current_time + datetime.timedelta(hours=1)
-        #     formatted_time0 = current_time.strftime("%Y-%m-%d %H:%M:%S")
-        #     formatted_time1 = one_minute_later.strftime("%Y-%m-%d %H:%M:%S")
-        #     to_pil = ToPILImage()
-        #     p0 =x[0]
-        #     p1 = x4[0]
-        #     plc0 = to_pil(p0)
-        #     plc1 = to_pil(p1)
-        #     plc0.save(f'{formatted_time0}.png')
-        #     plc1.save(f'{formatted_time1}.png')
-        # print("ok1")
         return pred, x
 
     def flops(self):
